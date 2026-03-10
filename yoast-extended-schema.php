@@ -46,6 +46,20 @@ function add_adhoc_schema_piece($graph_pieces, $context)
 
 add_filter('wpseo_schema_graph_pieces', 'OW\\YoastExtendedSchema\\add_adhoc_schema_piece', 10, 2);
 
+function register_options_page()
+{
+	if ( function_exists( 'acf_add_options_page' ) ) {
+		acf_add_options_page([
+			'page_title' => 'Yoast Extended Schema',
+			'menu_title' => 'Yoast Extended Schema',
+			'menu_slug'  => 'yoast-extended-schema',
+			'capability' => 'manage_options',
+			'redirect'   => false,
+		]);
+	}
+}
+add_action( 'acf/init', 'OW\\YoastExtendedSchema\\register_options_page' );
+
 // lets add save_json and load_json 
 function acf_json_load( array $paths )
 {
@@ -60,3 +74,4 @@ function acf_json_save( $path )
 	return __DIR__ . '/config/acf';
 }
 add_filter( 'acf/settings/save_json/key=group_6717ac50631cd', 'OW\\YoastExtendedSchema\\acf_json_save', 100, 1);
+add_filter( 'acf/settings/save_json/key=group_679b0ad1a1c2e', 'OW\\YoastExtendedSchema\\acf_json_save', 100, 1);
