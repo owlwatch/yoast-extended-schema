@@ -36,10 +36,37 @@
 
 namespace OW\YoastExtendedSchema;
 
+function load_plugin_classes() {
+	static $loaded = false;
+	if ( $loaded ) {
+		return;
+	}
+
+	$files = [
+		__DIR__ . '/src/Contracts/ResolverInterface.php',
+		__DIR__ . '/src/Contracts/VariableSourceInterface.php',
+		__DIR__ . '/src/Contracts/ModifierInterface.php',
+		__DIR__ . '/src/Sources/FieldSource.php',
+		__DIR__ . '/src/Sources/MetaSource.php',
+		__DIR__ . '/src/Sources/YoastSource.php',
+		__DIR__ . '/src/Sources/AuthorSource.php',
+		__DIR__ . '/src/Modifiers/WordsModifier.php',
+		__DIR__ . '/src/Modifiers/CharsModifier.php',
+		__DIR__ . '/src/Modifiers/SchemaDateModifier.php',
+		__DIR__ . '/src/Modifiers/CrossReferenceModifier.php',
+		__DIR__ . '/src/AdHoc.php',
+	];
+
+	foreach ( $files as $file ) {
+		include_once $file;
+	}
+
+	$loaded = true;
+}
 
 function add_adhoc_schema_piece($graph_pieces, $context)
 {
-	include_once __DIR__ . '/src/AdHoc.php';
+	load_plugin_classes();
 	$graph_pieces[] = new AdHoc();
 	return $graph_pieces;
 }

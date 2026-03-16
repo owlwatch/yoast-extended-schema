@@ -1,40 +1,46 @@
 <?php
 namespace OW\YoastExtendedSchema;
 
+use OW\YoastExtendedSchema\Contracts\ModifierInterface;
+use OW\YoastExtendedSchema\Contracts\ResolverInterface;
+use OW\YoastExtendedSchema\Contracts\VariableSourceInterface;
+use OW\YoastExtendedSchema\Modifiers\CharsModifier;
+use OW\YoastExtendedSchema\Modifiers\CrossReferenceModifier;
+use OW\YoastExtendedSchema\Modifiers\SchemaDateModifier;
+use OW\YoastExtendedSchema\Modifiers\WordsModifier;
+use OW\YoastExtendedSchema\Sources\AuthorSource;
+use OW\YoastExtendedSchema\Sources\FieldSource;
+use OW\YoastExtendedSchema\Sources\MetaSource;
+use OW\YoastExtendedSchema\Sources\YoastSource;
 use Yoast\WP\SEO\Generators\Schema\Abstract_Schema_Piece;
 
-class AdHoc extends Abstract_Schema_Piece
+class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 {
-	private const VARIABLE_PATTERN = '/\{\{\s*(field|meta|yoast|author)\s*:\s*([^\|\}]+?)\s*(?:\|\s*([^\}]+?)\s*)?\}\}/';
+	private const VARIABLE_PATTERN = '/\{\{\s*([a-z0-9_]+)\s*:\s*([^\|\}]+?)\s*(?:\|\s*([^\}]+?)\s*)?\}\}/i';
 
 	public $identifier = 'adhoc';
 
-	private function decode_schema_json( $schema_json ) {
-		if ( ! is_string( $schema_json ) || trim( $schema_json ) === '' ) {
-			return null;
-		}
+	/**
+	 * @var VariableSourceInterface[]
+	 */
+	private $sources = [];
 
-		$schema = json_decode( $schema_json, true );
-		if ( json_last_error() !== JSON_ERROR_NONE ) {
-			return null;
-		}
+	/**
+	 * @var ModifierInterface[]
+	 */
+	private $modifiers = [];
 
-		return $schema;
+	private $registries_initialized = false;
+
+	public function register_source( VariableSourceInterface $source ) {
+		$this->sources[ strtolower( $source->get_name() ) ] = $source;
 	}
 
-	private function is_singular_context() {
-		return is_singular() && isset( $this->context->post ) && $this->context->post instanceof \WP_Post;
+	public function register_modifier( ModifierInterface $modifier ) {
+		$this->modifiers[] = $modifier;
 	}
 
-	private function get_singular_post() {
-		if ( ! $this->is_singular_context() ) {
-			return null;
-		}
-
-		return $this->context->post;
-	}
-
-	private function normalize_scalar_value( $value ) {
+	public function normalize_scalar_value( $value ) {
 		if ( is_null( $value ) ) {
 			return '';
 		}
@@ -50,79 +56,7 @@ class AdHoc extends Abstract_Schema_Piece
 		return wp_json_encode( $value );
 	}
 
-	private function get_post_excerpt_value( \WP_Post $post ) {
-		if ( has_excerpt( $post ) ) {
-			return $post->post_excerpt;
-		}
-
-		$content = $post->post_content;
-		$content = strip_shortcodes( $content );
-		$content = excerpt_remove_blocks( $content );
-		$content = apply_filters( 'the_content', $content );
-		$content = str_replace( ']]>', ']]&gt;', $content );
-		$content = wp_strip_all_tags( $content, true );
-
-		return wp_trim_words( $content, 55, '' );
-	}
-
-	private function get_yoast_variable_value( $key, \WP_Post $post ) {
-		$key = trim( strtolower( $key ) );
-		if ( $key === '' ) {
-			return '';
-		}
-
-		if ( function_exists( 'YoastSEO' ) ) {
-			$meta_surface = \YoastSEO()->meta ?? null;
-			if ( $meta_surface && method_exists( $meta_surface, 'for_post' ) ) {
-				$meta = $meta_surface->for_post( $post->ID );
-				if ( $meta ) {
-					switch ( $key ) {
-						case 'title':
-							return $meta->title ?? '';
-
-						case 'description':
-							return $meta->description ?? $meta->meta_description ?? '';
-					}
-				}
-			}
-		}
-
-		if ( isset( $this->context->presentation ) && is_object( $this->context->presentation ) ) {
-			switch ( $key ) {
-				case 'title':
-					return $this->context->presentation->title ?? '';
-
-				case 'description':
-					return $this->context->presentation->meta_description ?? '';
-			}
-		}
-
-		return '';
-	}
-
-	private function get_author_variable_value( $key, \WP_Post $post ) {
-		$key = trim( strtolower( $key ) );
-		if ( $key === '' ) {
-			return '';
-		}
-
-		$author = get_userdata( (int) $post->post_author );
-		if ( ! $author ) {
-			return '';
-		}
-
-		switch ( $key ) {
-			case 'display_name':
-				return $author->display_name;
-
-			case 'url':
-				return get_author_posts_url( $author->ID );
-		}
-
-		return '';
-	}
-
-	private function get_reference_post( $value ) {
+	public function get_reference_post( $value ) {
 		if ( $value instanceof \WP_Post ) {
 			return $value;
 		}
@@ -152,7 +86,7 @@ class AdHoc extends Abstract_Schema_Piece
 		return null;
 	}
 
-	private function format_schema_datetime( $value ) {
+	public function format_schema_datetime( $value ) {
 		$value = trim( $this->normalize_scalar_value( $value ) );
 		if ( $value === '' ) {
 			return '';
@@ -173,45 +107,63 @@ class AdHoc extends Abstract_Schema_Piece
 		return $datetime->setTimezone( $timezone )->format( 'c' );
 	}
 
-	private function get_variable_value( $source, $key, \WP_Post $post ) {
+	public function resolve_source_value( $source, $key, \WP_Post $post ) {
+		$this->initialize_registries();
+
+		$source = strtolower( trim( $source ) );
 		$key = trim( $key );
-		if ( $key === '' ) {
+		if ( $source === '' || $key === '' ) {
 			return '';
 		}
 
-		if ( $source === 'field' ) {
-			switch ( $key ) {
-				case 'permalink':
-					return get_permalink( $post );
-
-				case 'excerpt':
-					return $this->get_post_excerpt_value( $post );
-
-				case 'featured_image':
-					$thumbnail_id = get_post_thumbnail_id( $post );
-					if ( ! $thumbnail_id ) {
-						return '';
-					}
-
-					return wp_get_attachment_image_url( $thumbnail_id, 'full' ) ?: '';
-			}
-
-			return get_post_field( $key, $post->ID, 'raw' );
+		if ( ! isset( $this->sources[ $source ] ) ) {
+			return '';
 		}
 
-		if ( $source === 'meta' ) {
-			return get_post_meta( $post->ID, $key, true );
+		return $this->sources[ $source ]->resolve( $key, $post, $this );
+	}
+
+	private function initialize_registries() {
+		if ( $this->registries_initialized ) {
+			return;
 		}
 
-		if ( $source === 'yoast' ) {
-			return $this->get_yoast_variable_value( $key, $post );
+		$this->register_source( new FieldSource() );
+		$this->register_source( new MetaSource() );
+		$this->register_source( new YoastSource() );
+		$this->register_source( new AuthorSource() );
+
+		$this->register_modifier( new WordsModifier() );
+		$this->register_modifier( new CharsModifier() );
+		$this->register_modifier( new SchemaDateModifier() );
+		$this->register_modifier( new CrossReferenceModifier() );
+
+		$this->registries_initialized = true;
+	}
+
+	private function decode_schema_json( $schema_json ) {
+		if ( ! is_string( $schema_json ) || trim( $schema_json ) === '' ) {
+			return null;
 		}
 
-		if ( $source === 'author' ) {
-			return $this->get_author_variable_value( $key, $post );
+		$schema = json_decode( $schema_json, true );
+		if ( json_last_error() !== JSON_ERROR_NONE ) {
+			return null;
 		}
 
-		return '';
+		return $schema;
+	}
+
+	private function is_singular_context() {
+		return is_singular() && isset( $this->context->post ) && $this->context->post instanceof \WP_Post;
+	}
+
+	private function get_singular_post() {
+		if ( ! $this->is_singular_context() ) {
+			return null;
+		}
+
+		return $this->context->post;
 	}
 
 	private function apply_variable_modifier( $value, $modifier, \WP_Post $post ) {
@@ -220,42 +172,19 @@ class AdHoc extends Abstract_Schema_Piece
 			return $value;
 		}
 
-		$text_value = wp_strip_all_tags( $this->normalize_scalar_value( $value ), true );
+		$this->initialize_registries();
 
-		if ( preg_match( '/^words\s*:\s*(\d+)$/i', $modifier, $matches ) === 1 ) {
-			return wp_trim_words( $text_value, (int) $matches[1], '' );
-		}
-
-		if ( preg_match( '/^chars\s*:\s*(\d+)$/i', $modifier, $matches ) === 1 ) {
-			$length = (int) $matches[1];
-			if ( $length <= 0 ) {
-				return '';
+		foreach ( $this->modifiers as $registered_modifier ) {
+			if ( $registered_modifier->supports( $modifier ) ) {
+				return $registered_modifier->apply( $value, $modifier, $post, $this );
 			}
-
-			return function_exists( 'mb_substr' ) ? mb_substr( $text_value, 0, $length ) : substr( $text_value, 0, $length );
 		}
 
-		if ( preg_match( '/^(schema_date|schema_datetime|iso8601)$/i', $modifier ) === 1 ) {
-			return $this->format_schema_datetime( $value );
-		}
-
-		if ( preg_match( '/^xref\s*:\s*(field|meta|yoast|author)\s*:\s*(.+)$/i', $modifier, $matches ) === 1 ) {
-			$reference_post = $this->get_reference_post( $value );
-			if ( ! $reference_post ) {
-				return '';
-			}
-
-			return $this->get_variable_value( strtolower( $matches[1] ), trim( $matches[2] ), $reference_post );
-		}
-
-		switch ( strtolower( $modifier ) ) {
-			default:
-				return $value;
-		}
+		return $value;
 	}
 
 	private function resolve_variable_match( array $match, \WP_Post $post ) {
-		$value = $this->get_variable_value( $match[1], $match[2], $post );
+		$value = $this->resolve_source_value( $match[1], $match[2], $post );
 		$modifiers = isset( $match[3] ) ? array_map( 'trim', explode( '|', $match[3] ) ) : [];
 
 		foreach ( $modifiers as $modifier ) {
