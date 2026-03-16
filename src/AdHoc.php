@@ -214,6 +214,10 @@ class AdHoc extends Abstract_Schema_Piece
 			return function_exists( 'mb_substr' ) ? mb_substr( $text_value, 0, $length ) : substr( $text_value, 0, $length );
 		}
 
+		if ( preg_match( '/^(schema_date|schema_datetime|iso8601)$/i', $modifier ) === 1 ) {
+			return mysql_to_rfc3339( $text_value );
+		}
+
 		if ( preg_match( '/^xref\s*:\s*(field|meta|yoast|author)\s*:\s*(.+)$/i', $modifier, $matches ) === 1 ) {
 			$reference_post = $this->get_reference_post( $value );
 			if ( ! $reference_post ) {
