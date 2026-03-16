@@ -8,7 +8,7 @@
             "name": "custom_schema",
             "aria-label": "",
             "type": "acfe_code_editor",
-            "instructions": "Leave blank for no additional custom schema",
+            "instructions": "",
             "required": 0,
             "conditional_logic": 0,
             "wrapper": {
