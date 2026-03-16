@@ -152,6 +152,27 @@ class AdHoc extends Abstract_Schema_Piece
 		return null;
 	}
 
+	private function format_schema_datetime( $value ) {
+		$value = trim( $this->normalize_scalar_value( $value ) );
+		if ( $value === '' ) {
+			return '';
+		}
+
+		$timezone = wp_timezone();
+		$datetime = date_create_immutable_from_format( 'Y-m-d H:i:s', $value, $timezone );
+
+		if ( ! $datetime ) {
+			try {
+				$datetime = new \DateTimeImmutable( $value, $timezone );
+			}
+			catch ( \Exception $exception ) {
+				return $value;
+			}
+		}
+
+		return $datetime->setTimezone( $timezone )->format( 'c' );
+	}
+
 	private function get_variable_value( $source, $key, \WP_Post $post ) {
 		$key = trim( $key );
 		if ( $key === '' ) {
@@ -215,7 +236,7 @@ class AdHoc extends Abstract_Schema_Piece
 		}
 
 		if ( preg_match( '/^(schema_date|schema_datetime|iso8601)$/i', $modifier ) === 1 ) {
-			return mysql_to_rfc3339( $text_value );
+			return $this->format_schema_datetime( $value );
 		}
 
 		if ( preg_match( '/^xref\s*:\s*(field|meta|yoast|author)\s*:\s*(.+)$/i', $modifier, $matches ) === 1 ) {
