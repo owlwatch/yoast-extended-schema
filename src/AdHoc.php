@@ -17,6 +17,7 @@ use Yoast\WP\SEO\Generators\Schema\Abstract_Schema_Piece;
 class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 {
 	private const VARIABLE_PATTERN = '/\{\{\s*([a-z0-9_]+)\s*:\s*([^\|\}]+?)\s*(?:\|\s*([^\}]+?)\s*)?\}\}/i';
+	private const CONDITIONAL_KEY = '$if';
 
 	public $identifier = 'adhoc';
 
@@ -31,6 +32,13 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 	private $modifiers = [];
 
 	private $registries_initialized = false;
+
+	/**
+	 * Unique marker used while recursively removing values whose conditions fail.
+	 *
+	 * @var object|null
+	 */
+	private $omitted_value = null;
 
 	public function register_source( VariableSourceInterface $source ) {
 		$this->sources[ strtolower( $source->get_name() ) ] = $source;
@@ -194,13 +202,58 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $value;
 	}
 
+	private function get_omitted_value() {
+		if ( $this->omitted_value === null ) {
+			$this->omitted_value = new \stdClass();
+		}
+
+		return $this->omitted_value;
+	}
+
+	private function condition_is_met( $value ) {
+		if ( is_string( $value ) ) {
+			return trim( $value ) !== '' && trim( $value ) !== '0';
+		}
+
+		return ! empty( $value );
+	}
+
+	private function is_list_array( array $value ) {
+		$expected_key = 0;
+		foreach ( $value as $key => $item ) {
+			if ( $key !== $expected_key ) {
+				return false;
+			}
+			$expected_key++;
+		}
+
+		return true;
+	}
+
 	private function resolve_schema_value( $value, \WP_Post $post ) {
 		if ( is_array( $value ) ) {
-			foreach ( $value as $key => $item ) {
-				$value[ $key ] = $this->resolve_schema_value( $item, $post );
+			$is_list = $this->is_list_array( $value );
+
+			if ( array_key_exists( self::CONDITIONAL_KEY, $value ) ) {
+				$condition = $this->resolve_schema_value( $value[ self::CONDITIONAL_KEY ], $post );
+				unset( $value[ self::CONDITIONAL_KEY ] );
+
+				if ( $condition === $this->get_omitted_value() || ! $this->condition_is_met( $condition ) ) {
+					return $this->get_omitted_value();
+				}
 			}
 
-			return $value;
+			foreach ( $value as $key => $item ) {
+				$resolved_item = $this->resolve_schema_value( $item, $post );
+				if ( $resolved_item === $this->get_omitted_value() ) {
+					unset( $value[ $key ] );
+					continue;
+				}
+
+				$value[ $key ] = $resolved_item;
+			}
+
+			return $is_list ? array_values( $value ) : $value;
 		}
 
 		if ( ! is_string( $value ) || strpos( $value, '{{' ) === false ) {
@@ -226,7 +279,8 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 			return $schema;
 		}
 
-		return $this->resolve_schema_value( $schema, $post );
+		$resolved_schema = $this->resolve_schema_value( $schema, $post );
+		return $resolved_schema === $this->get_omitted_value() ? [] : $resolved_schema;
 	}
 
 	private function get_custom_schema( $id )
