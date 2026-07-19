@@ -10,7 +10,7 @@ class AuthorSource implements VariableSourceInterface
 		return 'author';
 	}
 
-	public function resolve( $key, \WP_Post $post, ResolverInterface $resolver ) {
+	public function resolve( string $key, \WP_Post $post, ResolverInterface $resolver ) {
 		$key = trim( strtolower( $key ) );
 		if ( $key === '' ) {
 			return '';

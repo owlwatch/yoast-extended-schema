@@ -3,7 +3,7 @@ namespace OW\YoastExtendedSchema\Contracts;
 
 interface ModifierInterface
 {
-	public function supports( $modifier );
+	public function supports( string $modifier );
 
-	public function apply( $value, $modifier, \WP_Post $post, ResolverInterface $resolver );
+	public function apply( mixed $value, string $modifier, \WP_Post $post, ResolverInterface $resolver );
 }

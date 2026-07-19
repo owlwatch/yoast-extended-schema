@@ -6,11 +6,11 @@ use OW\YoastExtendedSchema\Contracts\ResolverInterface;
 
 class CharsModifier implements ModifierInterface
 {
-	public function supports( $modifier ) {
+	public function supports( string $modifier ) {
 		return preg_match( '/^chars\s*:\s*\d+$/i', trim( $modifier ) ) === 1;
 	}
 
-	public function apply( $value, $modifier, \WP_Post $post, ResolverInterface $resolver ) {
+	public function apply( mixed $value, string $modifier, \WP_Post $post, ResolverInterface $resolver ) {
 		preg_match( '/^chars\s*:\s*(\d+)$/i', trim( $modifier ), $matches );
 		$length = (int) $matches[1];
 		if ( $length <= 0 ) {

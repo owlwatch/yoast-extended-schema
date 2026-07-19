@@ -6,11 +6,11 @@ use OW\YoastExtendedSchema\Contracts\ResolverInterface;
 
 class CrossReferenceModifier implements ModifierInterface
 {
-	public function supports( $modifier ) {
+	public function supports( string $modifier ) {
 		return preg_match( '/^xref\s*:\s*[a-z0-9_]+\s*:\s*.+$/i', trim( $modifier ) ) === 1;
 	}
 
-	public function apply( $value, $modifier, \WP_Post $post, ResolverInterface $resolver ) {
+	public function apply( mixed $value, string $modifier, \WP_Post $post, ResolverInterface $resolver ) {
 		if ( preg_match( '/^xref\s*:\s*([a-z0-9_]+)\s*:\s*(.+)$/i', trim( $modifier ), $matches ) !== 1 ) {
 			return $value;
 		}

@@ -12,6 +12,7 @@
  * Plugin Name:       Yoast Extended Schema
  * Description:       Add a way to add a custom schema on a per-post basis
  * Version:           1.0.0
+ * Requires PHP:      8.0
  * Author:            Owl Watch
  * Author URI:        https://owlwatch.com
  * License:           GPL-3.0
@@ -54,6 +55,7 @@ function load_plugin_classes() {
 		__DIR__ . '/src/Modifiers/CharsModifier.php',
 		__DIR__ . '/src/Modifiers/SchemaDateModifier.php',
 		__DIR__ . '/src/Modifiers/CrossReferenceModifier.php',
+		__DIR__ . '/src/GraphMerger.php',
 		__DIR__ . '/src/AdHoc.php',
 	];
 
@@ -64,7 +66,7 @@ function load_plugin_classes() {
 	$loaded = true;
 }
 
-function add_adhoc_schema_piece($graph_pieces, $context)
+function add_adhoc_schema_piece( array $graph_pieces, \Yoast\WP\SEO\Context\Meta_Tags_Context $context )
 {
 	load_plugin_classes();
 	$graph_pieces[] = new AdHoc();
@@ -72,6 +74,14 @@ function add_adhoc_schema_piece($graph_pieces, $context)
 }
 
 add_filter('wpseo_schema_graph_pieces', 'OW\\YoastExtendedSchema\\add_adhoc_schema_piece', 10, 2);
+
+function merge_adhoc_schema( array $graph )
+{
+	load_plugin_classes();
+	return ( new GraphMerger() )->merge( $graph );
+}
+
+add_filter( 'wpseo_schema_graph', 'OW\\YoastExtendedSchema\\merge_adhoc_schema', 20, 1 );
 
 function register_options_page()
 {
@@ -95,7 +105,7 @@ function acf_json_load( array $paths )
 }
 add_filter( 'acf/settings/load_json', 'OW\\YoastExtendedSchema\\acf_json_load', 10, 1);
 
-function acf_json_save( $path )
+function acf_json_save( string $path )
 {
 	// we only want to save the following groups
 	return __DIR__ . '/config/acf';

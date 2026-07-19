@@ -10,7 +10,7 @@ class FieldSource implements VariableSourceInterface
 		return 'field';
 	}
 
-	public function resolve( $key, \WP_Post $post, ResolverInterface $resolver ) {
+	public function resolve( string $key, \WP_Post $post, ResolverInterface $resolver ) {
 		$key = trim( $key );
 		if ( $key === '' ) {
 			return '';

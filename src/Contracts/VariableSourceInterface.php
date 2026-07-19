@@ -5,5 +5,5 @@ interface VariableSourceInterface
 {
 	public function get_name();
 
-	public function resolve( $key, \WP_Post $post, ResolverInterface $resolver );
+	public function resolve( string $key, \WP_Post $post, ResolverInterface $resolver );
 }

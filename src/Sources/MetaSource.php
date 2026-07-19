@@ -10,7 +10,7 @@ class MetaSource implements VariableSourceInterface
 		return 'meta';
 	}
 
-	public function resolve( $key, \WP_Post $post, ResolverInterface $resolver ) {
+	public function resolve( string $key, \WP_Post $post, ResolverInterface $resolver ) {
 		$key = trim( $key );
 		if ( $key === '' ) {
 			return '';

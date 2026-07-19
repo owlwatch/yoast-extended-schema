@@ -48,7 +48,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		$this->modifiers[] = $modifier;
 	}
 
-	public function normalize_scalar_value( $value ) {
+	public function normalize_scalar_value( mixed $value ) {
 		if ( is_null( $value ) ) {
 			return '';
 		}
@@ -64,7 +64,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return wp_json_encode( $value );
 	}
 
-	public function get_reference_post( $value ) {
+	public function get_reference_post( mixed $value ) {
 		if ( $value instanceof \WP_Post ) {
 			return $value;
 		}
@@ -94,7 +94,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return null;
 	}
 
-	public function format_schema_datetime( $value ) {
+	public function format_schema_datetime( mixed $value ) {
 		$value = trim( $this->normalize_scalar_value( $value ) );
 		if ( $value === '' ) {
 			return '';
@@ -115,7 +115,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $datetime->setTimezone( $timezone )->format( 'c' );
 	}
 
-	public function resolve_source_value( $source, $key, \WP_Post $post ) {
+	public function resolve_source_value( string $source, string $key, \WP_Post $post ) {
 		$this->initialize_registries();
 
 		$source = strtolower( trim( $source ) );
@@ -149,7 +149,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		$this->registries_initialized = true;
 	}
 
-	private function decode_schema_json( $schema_json ) {
+	private function decode_schema_json( mixed $schema_json ) {
 		if ( ! is_string( $schema_json ) || trim( $schema_json ) === '' ) {
 			return null;
 		}
@@ -174,7 +174,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $this->context->post;
 	}
 
-	private function apply_variable_modifier( $value, $modifier, \WP_Post $post ) {
+	private function apply_variable_modifier( mixed $value, string $modifier, \WP_Post $post ) {
 		$modifier = trim( $modifier );
 		if ( $modifier === '' ) {
 			return $value;
@@ -210,7 +210,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $this->omitted_value;
 	}
 
-	private function condition_is_met( $value ) {
+	private function condition_is_met( mixed $value ) {
 		if ( is_string( $value ) ) {
 			return trim( $value ) !== '' && trim( $value ) !== '0';
 		}
@@ -230,7 +230,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return true;
 	}
 
-	private function resolve_schema_value( $value, \WP_Post $post ) {
+	private function resolve_schema_value( mixed $value, \WP_Post $post ) {
 		if ( is_array( $value ) ) {
 			$is_list = $this->is_list_array( $value );
 
@@ -273,7 +273,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		);
 	}
 
-	private function resolve_schema_variables( $schema ) {
+	private function resolve_schema_variables( mixed $schema ) {
 		$post = $this->get_singular_post();
 		if ( ! $post ) {
 			return $schema;
@@ -283,7 +283,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $resolved_schema === $this->get_omitted_value() ? [] : $resolved_schema;
 	}
 
-	private function get_custom_schema( $id )
+	private function get_custom_schema( int $id )
 	{
 		static $cache = [];
 		if( isset($cache[$id]) ){
@@ -304,7 +304,7 @@ class AdHoc extends Abstract_Schema_Piece implements ResolverInterface
 		return $schema;
 	}
 
-	private function get_options_schema( $post_type, $location )
+	private function get_options_schema( string $post_type, string $location )
 	{
 		static $cache = [];
 		$key = $post_type . '|' . $location;
